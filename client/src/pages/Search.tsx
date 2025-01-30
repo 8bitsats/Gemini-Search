@@ -1,29 +1,55 @@
-import { useEffect, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from 'react';
+
+import {
+  AnimatePresence,
+  motion,
+} from 'framer-motion';
+import { ArrowLeft } from 'lucide-react';
 import { useLocation } from 'wouter';
-import { useQuery, useMutation } from '@tanstack/react-query';
+
+import { FollowUpInput } from '@/components/FollowUpInput';
+import { Logo } from '@/components/Logo';
 import { SearchInput } from '@/components/SearchInput';
 import { SearchResults } from '@/components/SearchResults';
-import { FollowUpInput } from '@/components/FollowUpInput';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { SourceList } from '@/components/SourceList';
+import {
+  useMutation,
+  useQuery,
+} from '@tanstack/react-query';
+
+interface SearchResult {
+  sessionId?: string;
+  summary?: string;
+  sources?: Array<{
+    title: string;
+    url: string;
+    snippet: string;
+  }>;
+}
 
 export function Search() {
   const [location, setLocation] = useLocation();
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [currentResults, setCurrentResults] = useState<any>(null);
+  const [currentResults, setCurrentResults] = useState<SearchResult | null>(null);
   const [originalQuery, setOriginalQuery] = useState<string | null>(null);
   const [isFollowUp, setIsFollowUp] = useState(false);
   const [followUpQuery, setFollowUpQuery] = useState<string | null>(null);
   
   // Extract query from URL, handling both initial load and subsequent navigation
-  const getQueryFromUrl = () => {
+  const getParamsFromUrl = useCallback(() => {
     const searchParams = new URLSearchParams(window.location.search);
-    return searchParams.get('q') || '';
-  };
+    return {
+      query: searchParams.get('q') || '',
+      mode: (searchParams.get('mode') as 'web' | 'blockchain') || 'web'
+    };
+  }, []);
   
-  const [searchQuery, setSearchQuery] = useState(getQueryFromUrl);
+  const [searchQuery, setSearchQuery] = useState(getParamsFromUrl().query);
+  const [searchMode, setSearchMode] = useState<'web' | 'blockchain'>(getParamsFromUrl().mode);
   const [refetchCounter, setRefetchCounter] = useState(0);
 
   const { data, isLoading, error } = useQuery({
@@ -100,18 +126,36 @@ export function Search() {
     },
   });
 
-  const handleSearch = async (newQuery: string) => {
-    if (newQuery === searchQuery) {
-      // If it's the same query, increment the refetch counter to trigger a new search
-      setRefetchCounter(c => c + 1);
+  const handleSearch = async (newQuery: string, newMode: 'web' | 'blockchain') => {
+    setSearchMode(newMode);
+    if (newMode === 'blockchain') {
+      // Handle blockchain search
+      try {
+        const response = await fetch(`/api/solana/search?q=${encodeURIComponent(newQuery)}`);
+        if (!response.ok) throw new Error('Blockchain search failed');
+        const result = await response.json();
+        setCurrentResults({
+          summary: result.summary,
+          sources: result.sources,
+        });
+        setIsFollowUp(false);
+      } catch (error) {
+        console.error('Blockchain search error:', error);
+      }
     } else {
-      setSessionId(null); // Clear session on new search
-      setOriginalQuery(null); // Clear original query
-      setIsFollowUp(false); // Reset follow-up state
-      setSearchQuery(newQuery);
+      // Handle web search
+      if (newQuery === searchQuery) {
+        // If it's the same query, increment the refetch counter to trigger a new search
+        setRefetchCounter(c => c + 1);
+      } else {
+        setSessionId(null); // Clear session on new search
+        setOriginalQuery(null); // Clear original query
+        setIsFollowUp(false); // Reset follow-up state
+        setSearchQuery(newQuery);
+      }
     }
     // Update URL without triggering a page reload
-    const newUrl = `/search?q=${encodeURIComponent(newQuery)}`;
+    const newUrl = `/search?q=${encodeURIComponent(newQuery)}&mode=${newMode}`;
     window.history.pushState({}, '', newUrl);
   };
 
@@ -122,14 +166,15 @@ export function Search() {
 
   // Automatically start search when component mounts or URL changes
   useEffect(() => {
-    const query = getQueryFromUrl();
-    if (query && query !== searchQuery) {
+    const { query, mode } = getParamsFromUrl();
+    if ((query && query !== searchQuery) || (mode && mode !== searchMode)) {
       setSessionId(null); // Clear session on URL change
       setOriginalQuery(null); // Clear original query
       setIsFollowUp(false); // Reset follow-up state
       setSearchQuery(query);
+      setSearchMode(mode);
     }
-  }, [location]);
+  }, [searchQuery, searchMode, getParamsFromUrl]);
 
   // Use currentResults if available, otherwise fall back to data from useQuery
   const displayResults = currentResults || data;
@@ -140,16 +185,25 @@ export function Search() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
-      className="min-h-screen bg-background"
+      className="min-h-screen bg-[#0A0A0A] relative"
     >
+      <div 
+        style={{ backgroundImage: "url(/media/gradient.png)" }}
+        className="absolute left-1/2 top-1/2 h-full w-full -translate-x-1/2 -translate-y-1/2 bg-cover bg-center opacity-30"
+      />
+
       <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4 }}
-        className="max-w-6xl mx-auto p-4"
+        className="max-w-6xl mx-auto p-4 relative z-10"
       >
+        <div className="flex justify-center mb-8">
+          <Logo className="w-48" />
+        </div>
+        
         <motion.div 
-          className="flex items-center gap-4 mb-6"
+          className="flex items-center gap-4 mb-8"
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.4, delay: 0.1 }}
@@ -158,18 +212,20 @@ export function Search() {
             variant="ghost"
             size="icon"
             onClick={() => setLocation('/')}
-            className="hidden sm:flex"
+            className="hidden sm:flex text-white hover:text-[#FF6B4A] hover:bg-[#1A1A1A]"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
 
-          <div className="w-full max-w-2xl">
+          <div className="w-full">
             <SearchInput
               onSearch={handleSearch}
               initialValue={searchQuery}
+              initialMode={searchMode}
               isLoading={isLoading}
               autoFocus={false}
               large={false}
+              onClear={() => setLocation('/')}
             />
           </div>
         </motion.div>
@@ -183,21 +239,23 @@ export function Search() {
             transition={{ duration: 0.3 }}
             className="flex flex-col items-stretch"
           >
-            <SearchResults
-              query={isFollowUp ? (followUpQuery || '') : searchQuery}
-              results={displayResults}
-              isLoading={isLoading || followUpMutation.isPending}
-              error={error || followUpMutation.error || undefined}
-              isFollowUp={isFollowUp}
-              originalQuery={originalQuery || ''}
-            />
+            <div className="bg-base-300/50 backdrop-blur-sm rounded-lg border border-[#2A2A2A] p-6">
+              <SearchResults
+                query={isFollowUp ? (followUpQuery || '') : searchQuery}
+                results={displayResults}
+                isLoading={isLoading || followUpMutation.isPending}
+                error={error || followUpMutation.error || undefined}
+                isFollowUp={isFollowUp}
+                originalQuery={originalQuery || ''}
+              />
+            </div>
 
             {displayResults && !isLoading && !followUpMutation.isPending && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0.2 }}
-                className="mt-6 max-w-2xl"
+                className="mt-8 w-full backdrop-blur-sm"
               >
                 <FollowUpInput
                   onSubmit={handleFollowUp}

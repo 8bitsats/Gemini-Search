@@ -1,7 +1,15 @@
-import { useState, KeyboardEvent } from 'react';
-import { Input } from '@/components/ui/input';
+import {
+  KeyboardEvent,
+  useState,
+} from 'react';
+
+import {
+  Loader2,
+  MessageSquarePlus,
+} from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
-import { MessageSquarePlus, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 interface FollowUpInputProps {
@@ -39,8 +47,10 @@ export function FollowUpInput({
           placeholder="Ask a follow-up question..."
           className={cn(
             "transition-all duration-200",
-            "focus-visible:ring-1 focus-visible:ring-primary",
-            "placeholder:text-muted-foreground/70",
+            "bg-base-300/50 backdrop-blur-sm border-[#2A2A2A] text-white",
+            "placeholder:text-gray-500",
+            "focus-visible:ring-2 focus-visible:ring-[#FF6B4A] focus-visible:border-[#FF6B4A]",
+            "hover:bg-base-300/70",
             "w-full"
           )}
           disabled={isLoading}
@@ -50,7 +60,11 @@ export function FollowUpInput({
       <Button 
         onClick={handleSubmit}
         disabled={!query.trim() || isLoading}
-        className="flex items-center justify-center gap-2 w-full sm:w-auto"
+          className={cn(
+            "flex items-center justify-center gap-2 w-full sm:w-auto",
+            "bg-[#FF6B4A] hover:bg-[#FF8266] text-white",
+            "border-none backdrop-blur-sm"
+          )}
       >
         {isLoading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -63,4 +77,4 @@ export function FollowUpInput({
       </Button>
     </div>
   );
-} 
+}

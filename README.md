@@ -1,92 +1,188 @@
-# Gemini Search
+# Cheshire Terminal
 
-A Perplexity-style search engine powered by Google's Gemini 2.0 Flash model with grounding through Google Search. Get AI-powered answers to your questions with real-time web sources and citations.
+Cheshire Terminal is a revolutionary search platform that combines the power of AI-driven web search with native Solana blockchain exploration capabilities. It's the first of its kind to integrate Google's Gemini AI with direct Solana blockchain querying, providing a seamless experience for both web and blockchain research.
 
-Created by [@ammaar](https://x.com/ammaar)
+## 🌟 Key Features
 
-![Kapture 2025-01-04 at 14 35 14](https://github.com/user-attachments/assets/2302898e-03ae-40a6-a16c-301d6b91c5af)
+### 1. Dual-Mode Search
+- **Web Search Mode** 🌐
+  - Powered by Google's Gemini AI
+  - Aggregates results from multiple sources (Google, Perplexity, Tavily)
+  - Provides AI-synthesized summaries with source citations
+  - Supports natural language follow-up questions
 
+- **Blockchain Search Mode** ⛓️
+  - Direct Solana blockchain exploration
+  - Search by:
+    - Wallet addresses
+    - Token addresses
+    - Transaction hashes
+    - Token names/symbols
+  - Real-time blockchain data with Solscan integration
 
-## Features
+### 2. Advanced UI Features
+- Seamless mode switching between web and blockchain search
+- Smooth animations and transitions
+- Dark mode optimized interface
+- Responsive design for all devices
+- Real-time search suggestions
 
-- 🔍 Real-time web search integration
-- 🤖 Powered by Google's latest Gemini 2.0 Flash model
-- 📚 Source citations and references for answers
-- 💬 Follow-up questions in the same chat session
-- 🎨 Clean, modern UI inspired by Perplexity
-- ⚡ Fast response times
+### 3. Interactive Results
+- Rich markdown formatting for search results
+- Source attribution with clickable links
+- Follow-up question support for deep diving
+- Blockchain data visualization
+- Transaction history views
 
-## Tech Stack
+## 🔧 API Endpoints
 
-- Frontend: React + Vite + TypeScript + Tailwind CSS
-- Backend: Express.js + TypeScript
-- AI: Google Gemini 2.0 Flash API
-- Search: Google Search API integration
+### Web Search Endpoints
 
-## Setup
+```typescript
+// 1. Initial Search
+GET /api/search
+Query Parameters:
+  - q: string (search query)
+Response: {
+  sessionId: string,
+  summary: string (HTML formatted),
+  sources: Array<{
+    title: string,
+    url: string,
+    snippet: string
+  }>
+}
 
-### Prerequisites
+// 2. Follow-up Questions
+POST /api/follow-up
+Body: {
+  sessionId: string,
+  query: string
+}
+Response: {
+  summary: string (HTML formatted),
+  sources: Array<{...}>
+}
+```
 
-- Node.js (v18 or higher recommended)
-- npm or yarn
-- A Google API key with access to Gemini API
+### Blockchain Search Endpoints
 
-### Installation
+```typescript
+// 1. Solana Account Search
+GET /api/solana/search
+Query Parameters:
+  - q: string (address/token/query)
+Response: {
+  summary: string (HTML formatted),
+  sources: Array<{
+    title: string,
+    url: string,
+    snippet: string
+  }>
+}
 
-1. Clone the repository:
+// Account data includes:
+- Account type
+- SOL balance
+- Owner program
+- Token information (if applicable)
+- Transaction history
+```
 
-   ```bash
-   git clone https://github.com/ammaarreshi/Gemini-Search.git
-   cd Gemini-Search
+## 🛠️ Technical Stack
+
+### Frontend
+- React with TypeScript
+- Framer Motion for animations
+- TailwindCSS for styling
+- Wouter for routing
+- Tanstack Query for data fetching
+
+### Backend
+- Express.js server
+- Google Gemini AI integration
+- Solana Web3.js
+- Solscan API integration
+- WebSocket support for real-time updates
+
+## 🌈 What Makes It Unique
+
+1. **First Gemini-Powered Solana Explorer**
+   - Combines Google's latest AI technology with blockchain exploration
+   - Natural language processing for blockchain queries
+   - AI-synthesized explanations of blockchain data
+
+2. **Seamless Integration**
+   - Switch between web and blockchain search modes instantly
+   - Unified interface for both search types
+   - Consistent user experience across modes
+
+3. **Rich Data Visualization**
+   - Interactive blockchain data displays
+   - Transaction flow visualization
+   - Token holder statistics
+   - Historical data charts
+
+4. **Developer-Friendly**
+   - Clean API design
+   - Comprehensive documentation
+   - Easy integration points
+   - Extensible architecture
+
+## 🚀 Future Roadmap
+
+1. **Enhanced Blockchain Features**
+   - NFT collection exploration
+   - DeFi protocol integration
+   - Cross-chain search capabilities
+   - Smart contract analysis
+
+2. **AI Improvements**
+   - Blockchain-aware AI responses
+   - Transaction pattern analysis
+   - Wallet behavior insights
+   - Market trend predictions
+
+3. **User Experience**
+   - Customizable dashboards
+   - Saved searches
+   - Real-time alerts
+   - Mobile app development
+
+## 🔍 Example Use Cases
+
+1. **Research Mode**
+   ```
+   Query: "What is Solana?"
+   Result: Comprehensive explanation with both web sources and blockchain metrics
    ```
 
-2. Install dependencies:
-
-   ```bash
-   npm install
+2. **Blockchain Explorer Mode**
+   ```
+   Query: [Wallet Address]
+   Result: Detailed wallet analysis with transaction history and token holdings
    ```
 
-3. Create a `.env` file in the root directory:
-
+3. **Token Research**
    ```
-   GOOGLE_API_KEY=your_api_key_here
-   ```
-
-4. Start the development server:
-
-   ```bash
-   npm run dev
+   Query: "GRIN DAO token"
+   Result: Token metrics, holder statistics, and recent transactions
    ```
 
-5. Open your browser and navigate to:
-   ```
-   http://localhost:3000
-   ```
+## 🤝 Contributing
 
-## Environment Variables
+We welcome contributions! Whether it's:
+- Feature suggestions
+- Bug reports
+- Code contributions
+- Documentation improvements
 
-- `GOOGLE_API_KEY`: Your Google API key with access to Gemini API
-- `NODE_ENV`: Set to "development" by default, use "production" for production builds
+Please feel free to open issues and pull requests.
 
-## Development
+## 📝 License
 
-- `npm run dev`: Start the development server
-- `npm run build`: Build for production
-- `npm run start`: Run the production server
-- `npm run check`: Run TypeScript type checking
+MIT License - feel free to use and modify as needed.
 
-## Security Notes
+---
 
-- Never commit your `.env` file or expose your API keys
-- The `.gitignore` file is configured to exclude sensitive files
-- If you fork this repository, make sure to use your own API keys
-
-## License
-
-MIT License - feel free to use this code for your own projects!
-
-## Acknowledgments
-
-- Inspired by [Perplexity](https://www.perplexity.ai/)
-- Built with [Google's Gemini API](https://ai.google.dev/)
-- UI components from [shadcn/ui](https://ui.shadcn.com/)
+Built with ❤️ by the Cheshire Terminal Team

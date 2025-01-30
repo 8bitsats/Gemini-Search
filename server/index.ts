@@ -1,9 +1,18 @@
-import { setupEnvironment } from "./env";
-import path from "path";
-import { fileURLToPath } from "url";
-import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import express, {
+  NextFunction,
+  type Request,
+  Response,
+} from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+import { setupEnvironment } from './env';
+import { registerRoutes } from './routes';
+import {
+  log,
+  serveStatic,
+  setupVite,
+} from './vite';
 
 // Setup environment variables first
 const env = setupEnvironment();
@@ -18,6 +27,11 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Health check endpoint for DigitalOcean App Platform
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'healthy' });
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -69,9 +83,8 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 3000
-  // this serves both the API and the client
-  const PORT = 3000;
+  // Server port configuration
+  const PORT = parseInt(process.env.PORT || '3000', 10);
   server.listen(PORT, "0.0.0.0", () => {
     log(`serving on port ${PORT}`);
   });

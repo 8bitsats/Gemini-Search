@@ -1,21 +1,47 @@
-import { Switch, Route, useLocation } from "wouter";
-import { Home } from "@/pages/Home";
-import { Search } from "@/pages/Search";
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence } from 'framer-motion';
+import { AlertCircle } from 'lucide-react';
+import {
+  Link,
+  Route,
+  Switch,
+  useLocation,
+} from 'wouter';
+
+import {
+  Card,
+  CardContent,
+} from '@/components/ui/card';
+import { Home } from '@/pages/Home';
+import { Search } from '@/pages/Search';
 
 function App() {
   const [location] = useLocation();
 
   return (
-    <AnimatePresence mode="wait">
-      <Switch location={location} key={location}>
-        <Route path="/" component={Home} />
-        <Route path="/search" component={Search} />
-        <Route component={NotFound} />
-      </Switch>
-    </AnimatePresence>
+    <>
+      <nav className="bg-white shadow-sm">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex space-x-4">
+              <Link href="/" className="text-gray-700 hover:text-gray-900 transition-colors">
+                Home
+              </Link>
+              <Link href="/search" className="text-gray-700 hover:text-gray-900 transition-colors">
+                Search
+              </Link>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <AnimatePresence mode="wait">
+        <Switch location={location} key={location}>
+          <Route path="/" component={Home} />
+          <Route path="/search" component={Search} />
+          <Route component={NotFound} />
+        </Switch>
+      </AnimatePresence>
+    </>
   );
 }
 

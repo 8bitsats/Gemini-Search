@@ -1,0 +1,42 @@
+name: gemini-search
+region: nyc
+services:
+  - name: backend
+    dockerfile_path: Dockerfile
+    source_dir: .
+    github:
+      repo: 8bitsats/CheshireTerminalSearch
+      branch: main
+      deploy_on_push: true
+    health_check:
+      http_path: /health
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    run_command: node dist/index.mjs
+    http_port: 3000
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: GOOGLE_API_KEY
+        value: ${GOOGLE_API_KEY}
+      - key: BIRDEYE_API_KEY
+        value: ${BIRDEYE_API_KEY}
+      - key: HELIUS_API_KEY
+        value: ${HELIUS_API_KEY}
+    routes:
+      - path: /api
+        preserve_path_prefix: true
+      - path: /health
+        preserve_path_prefix: true
+    cors:
+      allow_origins:
+        - prefix: https://
+      allow_methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      allow_headers:
+        - Content-Type
+        - Authorization

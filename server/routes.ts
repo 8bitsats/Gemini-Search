@@ -1,14 +1,32 @@
-import type { Express } from "express";
-import { createServer, type Server } from "http";
 import {
-  GoogleGenerativeAI,
+  createServer,
+  type Server,
+} from 'node:http';
+
+import type { Express } from 'express';
+import { marked } from 'marked';
+
+import {
   type ChatSession,
-  type GenerateContentResult,
-} from "@google/generative-ai";
-import { marked } from "marked";
-import { setupEnvironment } from "./env";
+  GoogleGenerativeAI,
+} from '@google/generative-ai';
+
+import { birdeyeRoutes } from './birdeye';
+import { setupEnvironment } from './env';
+
+interface BirdeyeToken {
+  symbol: string;
+  name: string;
+  address: string;
+  market_cap?: number;
+  price?: number;
+  volume_24h_usd?: number;
+  logo_uri?: string;
+  verified?: boolean;
+}
 
 const env = setupEnvironment();
+const PORT = env.PORT || 3003;
 const genAI = new GoogleGenerativeAI(env.GOOGLE_API_KEY);
 const model = genAI.getGenerativeModel({
   model: "gemini-2.0-flash-exp",
@@ -94,14 +112,142 @@ interface GroundingSupport {
   confidenceScores: number[];
 }
 
+interface SearchEntryPoint {
+  type: string;
+  params?: Record<string, unknown>;
+}
+
 interface GroundingMetadata {
   groundingChunks: GroundingChunk[];
   groundingSupports: GroundingSupport[];
-  searchEntryPoint?: any;
+  searchEntryPoint?: SearchEntryPoint;
   webSearchQueries?: string[];
 }
 
 export function registerRoutes(app: Express): Server {
+  // Register Birdeye API routes
+  app.use('/api/birdeye', birdeyeRoutes);
+
+  // Solana blockchain search endpoint
+  app.get("/api/solana/search", async (req, res) => {
+    try {
+      const query = req.query.q as string;
+
+      if (!query) {
+        return res.status(400).json({
+          message: "Query parameter 'q' is required",
+        });
+      }
+
+      // Try to search using our Solana search functionality
+      const response = await fetch('http://localhost:3003/api/solana/address', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ address: query })
+      });
+
+      if (response.ok) {
+        const solanaData = await response.json();
+        if (solanaData) {
+          return res.json({
+            summary: `
+              **Solana Account Details**
+              
+              ${solanaData.type ? `**Type**: ${solanaData.type}` : ''}
+              ${solanaData.balance ? `**Balance**: ${solanaData.balance} SOL` : ''}
+              ${solanaData.owner ? `**Owner**: ${solanaData.owner}` : ''}
+              ${solanaData.collection ? `**Collection**: ${solanaData.collection}` : ''}
+              ${solanaData.name ? `**Name**: ${solanaData.name}` : ''}
+            `.trim(),
+            sources: [{
+              title: solanaData.type || 'Solana Account',
+              url: `https://xray.helius.xyz/account/${query}`,
+              snippet: `Address: ${query}`
+            }]
+          });
+        }
+      }
+
+      // If not found as an address, try Birdeye token search
+      const tokenResponse = await fetch(`http://localhost:${env.PORT || 3003}/api/birdeye/token/search?q=${encodeURIComponent(query)}`);
+      
+      if (tokenResponse.ok) {
+        const tokens = await tokenResponse.json();
+        
+        if (tokens && tokens.length > 0) {
+          const topTokens = tokens.slice(0, 5); // Take top 5 results
+          const summary = `
+            **Found ${topTokens.length} tokens matching "${query}"**
+            
+            ${topTokens.map((token: BirdeyeToken) => `
+            **${token.symbol || 'Unknown Token'}**
+            * Name: ${token.name || 'N/A'} 
+            * Address: ${token.address}
+            * Market Cap: $${token.market_cap ? Number(token.market_cap).toLocaleString() : 'N/A'}
+            * Price: $${token.price ? Number(token.price).toLocaleString() : 'N/A'}
+            * 24h Volume: $${token.volume_24h_usd ? Number(token.volume_24h_usd).toLocaleString() : 'N/A'}
+            `).join('\n')}
+          `;
+
+          return res.json({
+            summary: summary.trim(),
+            sources: topTokens.map((token: BirdeyeToken) => ({
+              title: token.symbol || 'Unknown Token',
+              url: `https://birdeye.so/token/${token.address}?chain=solana`,
+              snippet: `${token.name || 'Unknown'} - Price: $${token.price ? Number(token.price).toLocaleString() : 'N/A'} - 24h Volume: $${token.volume_24h_usd ? Number(token.volume_24h_usd).toLocaleString() : 'N/A'}`
+            }))
+          });
+        }
+      }
+
+      // If no results found from either search
+      return res.json({
+        summary: `No results found for "${query}" on the Solana blockchain.`,
+        sources: []
+      });
+
+    } catch (error) {
+      console.error("Solana search error:", error);
+      const errorMessage = error instanceof Error ? error.message : "An error occurred while searching the Solana blockchain";
+      res.status(500).json({ message: errorMessage });
+    }
+  });
+
+  // Solana address lookup endpoint
+  app.post("/api/solana/address", async (req, res) => {
+    try {
+      const { address } = req.body;
+      
+      if (!address) {
+        return res.status(400).json({ message: "Address is required" });
+      }
+
+      const HELIUS_API_KEY = env.HELIUS_API_KEY;
+      const response = await fetch(`https://api.helius.xyz/v0/addresses/?api-key=${HELIUS_API_KEY}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          addresses: [address]
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch address data from Helius');
+      }
+
+      const data = await response.json();
+      // Return the first address data since we only requested one
+      res.json(data[0] || {});
+    } catch (error) {
+      console.error("Helius API error:", error);
+      res.status(500).json({ message: "Failed to fetch address data" });
+    }
+  });
+
   // Search endpoint - creates a new chat session
   app.get("/api/search", async (req, res) => {
     try {
@@ -150,21 +296,21 @@ export function registerRoutes(app: Express): Server {
       >();
 
       // Get grounding metadata from response
-      const metadata = response.candidates?.[0]?.groundingMetadata as any;
+      const metadata = response.candidates?.[0]?.groundingMetadata as GroundingMetadata;
       if (metadata) {
         const chunks = metadata.groundingChunks || [];
         const supports = metadata.groundingSupports || [];
 
-        chunks.forEach((chunk: any, index: number) => {
+        chunks.forEach((chunk: GroundingChunk, index: number) => {
           if (chunk.web?.uri && chunk.web?.title) {
             const url = chunk.web.uri;
             if (!sourceMap.has(url)) {
               // Find snippets that reference this chunk
               const snippets = supports
-                .filter((support: any) =>
+                .filter((support: GroundingSupport) =>
                   support.groundingChunkIndices.includes(index)
                 )
-                .map((support: any) => support.segment.text)
+                .map((support: GroundingSupport) => support.segment.text)
                 .join(" ");
 
               sourceMap.set(url, {
@@ -188,12 +334,10 @@ export function registerRoutes(app: Express): Server {
         summary: formattedText,
         sources,
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Search error:", error);
-      res.status(500).json({
-        message:
-          error.message || "An error occurred while processing your search",
-      });
+      const errorMessage = error instanceof Error ? error.message : "An error occurred while processing your search";
+      res.status(500).json({ message: errorMessage });
     }
   });
 
@@ -242,21 +386,21 @@ export function registerRoutes(app: Express): Server {
       >();
 
       // Get grounding metadata from response
-      const metadata = response.candidates?.[0]?.groundingMetadata as any;
+      const metadata = response.candidates?.[0]?.groundingMetadata as GroundingMetadata;
       if (metadata) {
         const chunks = metadata.groundingChunks || [];
         const supports = metadata.groundingSupports || [];
 
-        chunks.forEach((chunk: any, index: number) => {
+        chunks.forEach((chunk: GroundingChunk, index: number) => {
           if (chunk.web?.uri && chunk.web?.title) {
             const url = chunk.web.uri;
             if (!sourceMap.has(url)) {
               // Find snippets that reference this chunk
               const snippets = supports
-                .filter((support: any) =>
+                .filter((support: GroundingSupport) =>
                   support.groundingChunkIndices.includes(index)
                 )
-                .map((support: any) => support.segment.text)
+                .map((support: GroundingSupport) => support.segment.text)
                 .join(" ");
 
               sourceMap.set(url, {
@@ -275,13 +419,10 @@ export function registerRoutes(app: Express): Server {
         summary: formattedText,
         sources,
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Follow-up error:", error);
-      res.status(500).json({
-        message:
-          error.message ||
-          "An error occurred while processing your follow-up question",
-      });
+      const errorMessage = error instanceof Error ? error.message : "An error occurred while processing your follow-up question";
+      res.status(500).json({ message: errorMessage });
     }
   });
 
